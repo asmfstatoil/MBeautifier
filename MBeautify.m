@@ -65,20 +65,23 @@ classdef MBeautify
             fclose(fid);
         end
         
-        function formatFile(file, outFile)
-            % Format file in editor
-            % function formatFile(file, outFile)
-            %
+        function formatFile(file, outFile, conf)
             % Formats the file specified in the first argument. The file is opened in the Matlab Editor. If the second
             % argument is also specified, the formatted source is saved to this file. Otherwise the formatted input
             % file remains opened in the Matlab Editor. The input and the output file can be the same.
+            
             if ~exist(file, 'file')
                 return;
             end
             
+            if ~exist('conf','var')
+                conf = char.empty;
+            end
+            
             document = matlab.desktop.editor.openDocument(file);
+            
             % Format the code
-            configuration = MBeautify.getConfiguration();
+            configuration = MBeautify.getConfiguration(conf);
             formatter = MBeautifier.MFormatter(configuration);
             document.Text = formatter.performFormatting(document.Text);
             
@@ -123,11 +126,15 @@ classdef MBeautify
                 end
             end
             
+            if ~exist('conf','var')
+                conf = char.empty;
+            end
+            
             files = dir(fullfile(directory, fileFilter));
             
             for iF = 1:numel(files)
                 file = fullfile(files(iF).folder, files(iF).name);
-                MBeautify.formatFile(file, file);
+                MBeautify.formatFile(file, file, conf);
             end
         end
         
@@ -237,12 +244,16 @@ classdef MBeautify
             end
         end
         
-        function formatCurrentEditorPage(doSave)
+        function formatCurrentEditorPage(doSave,conf)
             % Performs formatting on the currently active Matlab Editor page.
             % function formatCurrentEditorPage(doSave)
             %
             % Optionally saves the file (if it is possible) and it is forced on the first argument (true). By default
             % the file is not saved.
+            
+            if ~exist('conf','var')
+                conf = char.empty;
+            end
             
             currentEditorPage = matlab.desktop.editor.getActive();
             if isempty(currentEditorPage)
@@ -256,7 +267,7 @@ classdef MBeautify
             selectedPosition = currentEditorPage.Selection;
             
             % Format the code
-            configuration = MBeautify.getConfiguration();
+            configuration = MBeautify.getConfiguration(conf);
             formatter = MBeautifier.MFormatter(configuration);
             currentEditorPage.Text = formatter.performFormatting(currentEditorPage.Text);
             
@@ -385,17 +396,20 @@ classdef MBeautify
             
             editorPage.Text = strjoin(textArray, '\n');
         end
-        
-        function configuration = getConfiguration()
-            %
-            % function configuration = getConfiguration()
-            %
+    end
+    methods(Static = true)
+        function configuration = getConfiguration(filePath)
+            if nargin < 1 || isempty(filePath)
+                filePath = MBeautify.RulesXMLFileFull;
+            end
             
-            [parent, file, ext] = fileparts(MBeautify.RulesXMLFileFull);
+            filePath = char(System.IO.Path.GetFullPath(filePath));
+            
+            [parent, file, ext] = fileparts(filePath);
             path = java.nio.file.Paths.get(parent, [file, ext]);
             
             if ~path.toFile.exists()
-                error('MBeautifier:Configuration:ConfigurationFileDoesNotExist', 'The configuration XML file is missing!');
+                error('MBeautifier:Configuration:ConfigurationFileDoesNotExist', 'The configuration XML file %s is missing!',filePath);
             end
             
             bytes = java.nio.file.Files.readAllBytes(path);
@@ -410,7 +424,7 @@ classdef MBeautify
                 configuration = getappdata(0, 'MBeautifier_ConfigurationObject');
             end
             if isempty(configuration)
-                configuration = MBeautifier.Configuration.Configuration.fromFile(MBeautify.RulesXMLFileFull);
+                configuration = MBeautifier.Configuration.Configuration.fromFile(filePath);
                 setappdata(0, 'MBeautifier_ConfigurationChecksum', currentChecksum);
                 setappdata(0, 'MBeautifier_ConfigurationObject', configuration);
             end
