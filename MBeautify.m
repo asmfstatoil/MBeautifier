@@ -88,9 +88,26 @@ classdef MBeautify
             end
         end
         
-        function formatFiles(directory, fileFilter)
+        function formatFiles(directory, fileFilter, recurse)
             % Formats the files in-place (files are overwritten) in the specified directory, collected by the specified filter.
             % The file filter is a wildcard expression used by the dir command.
+            
+            if ~exist('fileFilter','var') || isempty(fileFilter)
+                fileFilter = '*.m';
+            end
+            
+            if ~exist('recurse','var') || isempty(recurse)
+                recurse = false;
+            end
+            
+            if recurse
+                contents = dir(directory);
+                for k = numel(contents):-1:1
+                    if contents(k).isdir && ~startsWith(contents(k).name,'.')
+                        MBeautify.formatFiles(fullfile(contents(k).folder, contents(k).name), fileFilter, recurse);
+                    end
+                end
+            end
             
             files = dir(fullfile(directory, fileFilter));
             
@@ -342,9 +359,15 @@ classdef MBeautify
             
             editorPage.Text = strjoin(textArray, '\n');
         end
-        
-        function configuration = getConfiguration()
-            [parent, file, ext] = fileparts(MBeautify.RulesXMLFileFull);
+    end
+    methods(Static = true)
+        function configuration = getConfiguration(filePath)
+            if ~exist('filePath','var') || isempty(filePath)
+                filePath = MBeautify.RulesXMLFileFull;
+            end
+            filePath = char(System.IO.Path.GetFullPath(filePath));
+            
+            [parent, file, ext] = fileparts(filePath);
             path = java.nio.file.Paths.get(parent, [file, ext]);
             
             if ~path.toFile.exists()
@@ -363,7 +386,7 @@ classdef MBeautify
                 configuration = getappdata(0, 'MBeautifier_ConfigurationObject');
             end
             if isempty(configuration)
-                configuration = MBeautifier.Configuration.Configuration.fromFile(MBeautify.RulesXMLFileFull);
+                configuration = MBeautifier.Configuration.Configuration.fromFile(filePath);
                 setappdata(0, 'MBeautifier_ConfigurationChecksum', currentChecksum);
                 setappdata(0, 'MBeautifier_ConfigurationObject', configuration);
             end
