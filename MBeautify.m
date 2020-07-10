@@ -399,7 +399,7 @@ classdef MBeautify
     end
     methods(Static = true)
         function configuration = getConfiguration(filePath)
-            if nargin < 1 || isempty(filePath)
+            if ~exist('filePath','var') || isempty(filePath)
                 filePath = MBeautify.RulesXMLFileFull;
             end
             
